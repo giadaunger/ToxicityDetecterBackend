@@ -96,6 +96,20 @@ def predict_toxicity(text):
     return prediction
 
 
+# Endpoint to classify comment or link
+@app.route('/classify', methods=['POST'])
+def classify_text():
+    data = request.json
+    text = data.get('text', None)
+    
+    if text:
+        prediction = predict_toxicity(text)
+        return jsonify(prediction), 200
+    else:
+        return jsonify({"error": "No text provided"}), 400
+    
+
+# Endpoint to handle link submission
 @app.route('/submit', methods=['POST'])
 def receive_input():
     data = request.json 
