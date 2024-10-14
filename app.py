@@ -6,10 +6,17 @@ import tweepy
 import os
 import re
 import emoji
+import torch
+from transformers import BertTokenizer, BertForSequenceClassification
 
 load_dotenv()
 app = Flask(__name__)
 CORS(app) 
+
+# Load the model and tokenizer
+tokenizer = BertTokenizer.from_pretrained('toxicity_tokenizer') 
+model = BertForSequenceClassification.from_pretrained('toxicity_model')  
+model.eval()  
 
 # Clean text
 def clean_text(text):
@@ -17,6 +24,7 @@ def clean_text(text):
     text = re.sub(r"@\S+", "", text)
     text = emoji.replace_emoji(text, "")
     return text
+
 
 # Reddit 
 reddit = praw.Reddit(
@@ -68,6 +76,24 @@ def extract_tweet_id(tweet_url):
     tweet_id = tweet_url.split('/')[-1]
     print(f"Extracted tweet_id: {tweet_id}") 
     return tweet_id
+
+
+# Prediciton
+def predict_toxicity(text):
+    # Clean and preprocess the text
+    cleaned_text = clean_text(text)
+    inputs = tokenizer(cleaned_text, return_tensors="pt", truncation=True, padding='max_length', max_length=128)
+    
+    # Make predictions
+    with torch.no_grad():
+        outputs = model(**inputs)
+    logits = outputs.logits
+    probabilities = torch.sigmoid(logits).squeeze().tolist()  # Convert to probabilities
+    
+    # Define the labels
+    labels = ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"]
+    prediction = {label: prob for label, prob in zip(labels, probabilities)}
+    return prediction
 
 
 @app.route('/submit', methods=['POST'])
