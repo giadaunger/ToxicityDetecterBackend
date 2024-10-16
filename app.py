@@ -14,8 +14,8 @@ app = Flask(__name__)
 CORS(app) 
 
 # Load the model and tokenizer
-tokenizer = BertTokenizer.from_pretrained('toxicity_tokenizer') 
-model = BertForSequenceClassification.from_pretrained('toxicity_model')  
+tokenizer = BertTokenizer.from_pretrained('model/toxicity_tokenizer') 
+model = BertForSequenceClassification.from_pretrained('model/toxicity_model')  
 model.eval()  
 
 # Clean text
