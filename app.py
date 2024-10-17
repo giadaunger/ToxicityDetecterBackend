@@ -39,7 +39,13 @@ def fetch_reddit_thread(url):
         submission.comments.replace_more(limit=0)
         title = clean_text(submission.title)
         author = clean_text(submission.author.name) if submission.author else "Unknown"
-        comments = [clean_text(comment.body) for comment in submission.comments.list()]
+        comments = [
+            {
+                "text": clean_text(comment.body),
+                "toxicity": predict_toxicity(comment.body)
+            }
+            for comment in submission.comments.list()
+        ]
         return {
             "title": title,
             "author": author,
