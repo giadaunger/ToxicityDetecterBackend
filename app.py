@@ -8,6 +8,7 @@ import re
 import emoji
 import torch
 from transformers import BertTokenizer, BertForSequenceClassification
+from openai import OpenAI
 
 load_dotenv()
 app = Flask(__name__)
@@ -26,6 +27,36 @@ def clean_text(text):
     return text
 
 
+# Open API
+
+def gpt_explain_toxicity(text, flagged_labels):
+    explanation_prompt = f"The following comment was flagged as potentially harmful:\n\n{text}\n\n"
+    explanation_prompt += "Based on the following flags:\n"
+    
+    # Add each flagged label with the probability score
+    for label, score in flagged_labels.items():
+        explanation_prompt += f"- {label}: {score:.2f}\n"
+    
+    explanation_prompt += "Explain why this text might be harmful or toxic."
+
+    try:
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        client = OpenAI(api_key=openai_api_key)
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",  
+            messages=[
+                {"role": "system", "content": "You are a toxicity analysis assistant."},
+                {"role": "user", "content": explanation_prompt}
+            ],
+            max_tokens=150,
+            temperature=0.5
+        )
+        explanation = response.choices[0].message.content.strip()
+        return explanation
+    except Exception as e:
+        return f"Error generating explanation: {str(e)}"
+
+
 # Reddit 
 reddit = praw.Reddit(
     client_id=os.getenv("CLIENT_ID"),
@@ -39,13 +70,20 @@ def fetch_reddit_thread(url):
         submission.comments.replace_more(limit=0)
         title = clean_text(submission.title)
         author = clean_text(submission.author.name) if submission.author else "Unknown"
-        comments = [
-            {
-                "text": clean_text(comment.body),
-                "toxicity": predict_toxicity(comment.body)
-            }
-            for comment in submission.comments.list()
-        ]
+        comments = []
+        
+        for comment in submission.comments.list():
+            cleaned_comment = clean_text(comment.body)
+            toxicity = predict_toxicity(cleaned_comment)
+
+            # Only append comments that are flagged with an explanation
+            if toxicity["explanation"]:
+                comments.append({
+                    "text": cleaned_comment,
+                    "toxicity": toxicity["prediction"],
+                    "explanation": toxicity["explanation"]
+                })
+        
         return {
             "title": title,
             "author": author,
@@ -99,7 +137,16 @@ def predict_toxicity(text):
     # Define the labels
     labels = ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"]
     prediction = {label: prob for label, prob in zip(labels, probabilities)}
-    return prediction
+    
+    threshold = 0.5
+    flagged_labels = {label: score for label, score in prediction.items() if score >= threshold}
+
+    # Generate explanation only if there are flagged labels
+    explanation = None
+    if flagged_labels:
+        explanation = gpt_explain_toxicity(text, flagged_labels)
+
+    return {"prediction": prediction, "explanation": explanation}
 
 
 # Endpoint to classify comment or link
