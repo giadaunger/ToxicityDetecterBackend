@@ -28,17 +28,15 @@ def clean_text(text):
 
 
 # Open API
-
 def gpt_explain_toxicity(text, flagged_labels):
-    explanation_prompt = f"The following comment was flagged as potentially harmful:\n\n{text}\n\n"
-    explanation_prompt += "Based on the following flags:\n"
+    explanation_prompt = f'The comment "{text}" is flagged as potentially harmful for several reasons, as indicated by the high scores in various toxicity categories:<br/>'
     
     # Add each flagged label with the probability score
+    count = 1
     for label, score in flagged_labels.items():
-        explanation_prompt += f"- {label}: {score:.2f}\n"
+        explanation_prompt += f'{count}. <b>{label.capitalize()} ({score:.2f})</b>: Explain why this text might be harmful or toxic.<br/>'
+        count += 1
     
-    explanation_prompt += "Explain why this text might be harmful or toxic."
-
     try:
         openai_api_key = os.getenv("OPENAI_API_KEY")
         client = OpenAI(api_key=openai_api_key)
@@ -52,7 +50,11 @@ def gpt_explain_toxicity(text, flagged_labels):
             temperature=0.5
         )
         explanation = response.choices[0].message.content.strip()
-        return explanation
+
+        # Insert <br/> tags for line breaks and wrap label names in <b> tags for bold
+        formatted_explanation = explanation.replace("\n", "<br/>")
+
+        return formatted_explanation
     except Exception as e:
         return f"Error generating explanation: {str(e)}"
 
