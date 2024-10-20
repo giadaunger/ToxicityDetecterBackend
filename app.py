@@ -167,7 +167,6 @@ def classify_text():
 def receive_input():
     data = request.json 
     link = data.get('link')
-    comment = data.get('comment')
 
     if not data:
         return jsonify({'error': 'No data received'}), 400
