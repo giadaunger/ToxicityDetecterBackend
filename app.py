@@ -142,7 +142,7 @@ def predict_toxicity(text):
     labels = ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"]
     prediction = {label: prob for label, prob in zip(labels, probabilities)}
     
-    threshold = 0.5
+    threshold = 0.25
     flagged_labels = {label: score for label, score in prediction.items() if score >= threshold}
 
     # Generate explanation only if there are flagged labels
@@ -153,7 +153,7 @@ def predict_toxicity(text):
     return {"prediction": prediction, "explanation": explanation}
 
 
-# Endpoint to classify comment or link
+# Endpoint to classify comments
 @app.route('/classify', methods=['POST'])
 def classify_text():
     data = request.json
@@ -180,7 +180,6 @@ def receive_input():
         return jsonify(reddit_data), 200
     elif "x.com" in link:
         tweet_id = extract_tweet_id(link)
-        print(tweet_id)
         twitter_thread = fetch_twitter_thread(tweet_id)
         return jsonify(twitter_thread), 200
     else:
